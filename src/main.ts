@@ -1,4 +1,3 @@
-
 import {
   CommentSubmit,
   Metadata,
@@ -144,6 +143,5 @@ Devvit.addSchedulerHandler({
     }
   },
 });
-
 
 export default Devvit;
