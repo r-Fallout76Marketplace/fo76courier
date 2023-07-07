@@ -108,20 +108,28 @@ Devvit.addTrigger({
   },
 });
 
+const handleAppUpgrade = async (_: any, metadata?: Metadata) => {
+  try {
+    await scheduler.Schedule(
+      { cron: "*/15 * * * *", action: { type: PRUNE_KVSTORAGE } },
+      metadata
+    );
+  } catch (e) {
+    console.log("Error: Unable to schedule task", e);
+    throw e;
+  }
+};
+
 Devvit.addTrigger({
   event: Devvit.Trigger.AppUpgrade,
-  handler: async (_, metadata?: Metadata) => {
-    try {
-      await scheduler.Schedule(
-        { cron: "*/15 * * * *", action: { type: PRUNE_KVSTORAGE } },
-        metadata
-      );
-    } catch (e) {
-      console.log("error was not able to schedule:", e);
-      throw e;
-    }
-  },
+  handler: handleAppUpgrade,
 });
+
+Devvit.addTrigger({
+  event: Devvit.Trigger.AppInstall,
+  handler: handleAppUpgrade,
+});
+
 
 Devvit.addSchedulerHandler({
   type: PRUNE_KVSTORAGE,
