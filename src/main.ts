@@ -78,7 +78,8 @@ Devvit.addTrigger({
       console_type = "@Mod";
     }
 
-    const message = `${console_type} [u/${request.author?.name}](https://www.reddit.com${request.post?.url}) ` +
+    let post = await reddit.getPostById(request.post!.id, metadata);
+    const message = `${console_type} [u/${request.author?.name}](https://www.reddit.com${post.permalink}) ` +
       `is requesting courier service. Please react to the message accordingly. ` +
       `<:request_completed:803477382156648448> (request completed), ` +
       `<:request_inprocess:804224025688801290> (request in process), ` +
