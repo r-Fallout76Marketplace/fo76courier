@@ -1,22 +1,13 @@
 import {
-  CommentSubmit,
-  Metadata,
-} from '@devvit/protos';
-
-import {
-  Devvit,
-  getSetting,
-  getFromMetadata,
-  Header,
-  KeyValueStorage,
-  RedditAPIClient,
+  Devvit
 } from '@devvit/public-api';
 
-Devvit.use(Devvit.Types.HTTP);
+Devvit.configure({
+  redditAPI: true,
+  http: true,
+  kvStore: true,
+})
 
-const kv = new KeyValueStorage();
-const reddit = new RedditAPIClient();
-const scheduler = Devvit.use(Devvit.Types.Scheduler);
 const PRUNE_KVSTORAGE = "prune_kvstorage";
 
 Devvit.addSettings([
@@ -30,20 +21,20 @@ Devvit.addSettings([
 
 // Register a handler for the OnCommentSubmit event
 Devvit.addTrigger({
-  event: Devvit.Trigger.CommentSubmit,
-  async handler(request: CommentSubmit, metadata?: Metadata) {
-    if (request.author?.name === getFromMetadata(Header.AppUser, metadata)) {
+  event: "CommentSubmit",
+  onEvent: async (event, context) => {
+    if (event.author?.id === context.appAccountId) {
       console.log('hey! my app created this comment; not going to respond');
       return;
     }
 
-    const commentBody = request.comment!.body!.toLowerCase();
+    const commentBody = event.comment!.body!.toLowerCase();
     // Comment body does not start with !courier or courier!
     if (!(commentBody.startsWith("!courier") || commentBody.startsWith("courier!"))) {
       return;
     }
 
-    const submission_flair_text = request.post!.linkFlair?.text.toLowerCase();
+    const submission_flair_text = event.post!.linkFlair?.text.toLowerCase();
     if (!submission_flair_text) {
       // If no flair seleted
       return;
@@ -55,8 +46,8 @@ Devvit.addTrigger({
       return;
     }
 
-    let comment = await reddit.getCommentById(request.comment!.id, metadata);
-    let last_request_time: number | undefined = await kv.get(request.post!.id);
+    let comment = await context.reddit.getCommentById(event.comment!.id);
+    let last_request_time: number | undefined = await context.kvStore.get(event.post!.id);
     if (last_request_time) {
       let unix_time = Math.floor(Date.now() / 1000);
       if (last_request_time - unix_time < 1800) {
@@ -78,8 +69,8 @@ Devvit.addTrigger({
       console_type = "@Mod";
     }
 
-    let post = await reddit.getPostById(request.post!.id, metadata);
-    const message = `${console_type} [u/${request.author?.name}](https://www.reddit.com${post.permalink}) ` +
+    let post = await context.reddit.getPostById(event.post!.id);
+    const message = `${console_type} [u/${event.author?.name}](https://www.reddit.com${post.permalink}) ` +
       `is requesting courier service. Please react to the message accordingly. ` +
       `<:request_completed:803477382156648448> (request completed), ` +
       `<:request_inprocess:804224025688801290> (request in process), ` +
@@ -87,7 +78,7 @@ Devvit.addTrigger({
       `<:request_rejected:803477462360784927> (request rejected). `;
 
 
-    const webhook = await getSetting('courier_channel_webhook', metadata) as string;
+    const webhook = await context.settings.get('courier_channel_webhook') as string;
     const response = await fetch(webhook, {
       method: 'POST',
       headers: {
@@ -105,39 +96,23 @@ Devvit.addTrigger({
     await comment.reply({ text: comment_body });
 
     let unix_time = Math.floor(Date.now() / 1000);
-    await kv.put(request.post!.id, unix_time)
+    await context.kvStore.put(event.post!.id, unix_time)
   },
 });
 
-const handleAppUpgrade = async (_: any, metadata?: Metadata) => {
-  try {
-    await scheduler.Schedule(
-      { cron: "*/15 * * * *", action: { type: PRUNE_KVSTORAGE } },
-      metadata
-    );
-  } catch (e) {
-    console.log("Error: Unable to schedule task", e);
-    throw e;
+Devvit.addTrigger({
+  events: ["AppInstall", "AppUpgrade"],
+  onEvent: (_, context) => {
+    context.scheduler.runJob({ cron: "*/15 * * * *", name: PRUNE_KVSTORAGE });
   }
-};
-
-Devvit.addTrigger({
-  event: Devvit.Trigger.AppUpgrade,
-  handler: handleAppUpgrade,
 });
 
-Devvit.addTrigger({
-  event: Devvit.Trigger.AppInstall,
-  handler: handleAppUpgrade,
-});
-
-
-Devvit.addSchedulerHandler({
-  type: PRUNE_KVSTORAGE,
-  async handler(_, metadata) {
-    let kv_list = await kv.list(metadata);
+Devvit.addSchedulerJob({
+  name: PRUNE_KVSTORAGE,
+  onRun: async (_, context) => {
+    let kv_list = await context.kvStore.list();
     for (const item of kv_list) {
-      let last_request_time: number | undefined = await kv.get(item);
+      let last_request_time: number | undefined = await context.kvStore.get(item);
       if (!last_request_time) {
         continue;
       }
@@ -148,9 +123,9 @@ Devvit.addSchedulerHandler({
       }
 
       // Perform actions if last_request_time is older than the threshold (1800 seconds)
-      await kv.delete(item);
+      await context.kvStore.delete(item);
     }
-  },
+  }
 });
 
 export default Devvit;
