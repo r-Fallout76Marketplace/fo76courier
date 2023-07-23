@@ -24,7 +24,6 @@ Devvit.addTrigger({
   event: "CommentSubmit",
   onEvent: async (event, context) => {
     if (event.author?.id === context.appAccountId) {
-      console.log('hey! my app created this comment; not going to respond');
       return;
     }
 
