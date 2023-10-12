@@ -101,8 +101,22 @@ Devvit.addTrigger({
 
 Devvit.addTrigger({
   events: ["AppInstall", "AppUpgrade"],
-  onEvent: (_, context) => {
-    context.scheduler.runJob({ cron: "*/15 * * * *", name: PRUNE_KVSTORAGE });
+  onEvent: async (_, context) => {
+    // Deletes all keys
+    const allKeys = await context.kvStore.list();
+    for (const key of allKeys) {
+      await context.kvStore.delete(key);
+    }
+
+    // Find all existing cron jobs, and cancel them
+    const jobs = await context.scheduler.listJobs();
+    for (const job of jobs) {
+      if ('cron' in job) {
+        await context.scheduler.cancelJob(job.id);
+      }
+    }
+
+    await context.scheduler.runJob({ cron: "*/15 * * * *", name: PRUNE_KVSTORAGE });
   }
 });
 
