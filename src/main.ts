@@ -106,8 +106,8 @@ Devvit.addTrigger({
     await comment.reply({ text: comment_body });
 
     let currentUnixTimeSeconds = Math.floor(Date.now() / 1000);
-    let futureUnixTimeMillis = (currentUnixTimeSeconds + 30 * 60 * 1000) * 1000;
-    let futureDate = new Date(futureUnixTimeMillis);
+    let futureUnixTimeSeconds = currentUnixTimeSeconds + 30 * 60;
+    let futureDate = new Date(futureUnixTimeSeconds * 1000);
 
     await context.redis.set(event.post!.id, currentUnixTimeSeconds.toString(), {
       expiration: futureDate,
