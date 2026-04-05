@@ -1,14 +1,14 @@
 {
   "private": true,
   "name": "fo76courierbot",
-  "version": "0.0.45",
+  "version": "0.1.0",
   "license": "BSD-3-Clause",
   "type": "module",
   "dependencies": {
-    "@devvit/public-api": "^0.10.22"
+    "@devvit/public-api": "^0.12.17"
   },
   "devDependencies": {
-    "@devvit/tsconfig": "^0.10.22",
-    "typescript": "^5.4.5"
+    "devvit": "^0.12.17",
+    "typescript": "^6.0.2"
   }
 }
